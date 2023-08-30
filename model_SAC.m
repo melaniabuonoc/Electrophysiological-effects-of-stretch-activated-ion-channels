@@ -4,13 +4,13 @@
             tstretch=-1;
         end
 
-celltype=0; %endo = 0, epi = 1, M = 2
+celltype=0; %endo = 0
 
 %extracellular ionic concentrations
 nao=140;
 cao=1.8;
-%ko=5.4;
-ko=5;
+%ko=5.4; %only for I-V curves
+ko=5; %with calcium and contraction
 
 %addition
 ICaL_fractionSS = 0.8;
@@ -128,6 +128,7 @@ fICaLp=(1.0/(1.0+KmCaMK/CaMKa));
 %% SACs
 %calculate ISac
 
+
 if tstretch~=-1
     if t<tstretch
         x=0;
@@ -140,6 +141,8 @@ else
     x=Lambda-1;
 end
 
+
+%% 
 sigm_factor=x^ISAC_factor(1)/(x^ISAC_factor(1)+ISAC_factor(2));
 factor_species=35;
 
@@ -163,6 +166,7 @@ INs=(INsNa+INsK);
 GammaSLKo=BetaKo*(x)+0.7;
 IKo=(((GKo*(GammaSLKo/(1+exp(-(10+v)/45)))*(v-EK)))/Cm)/factor_species;
 
+%SACCa -- Piezo1 (see in calcium section)
 
 %%
 %calculate INa
@@ -456,6 +460,7 @@ gamma_kao = exp(-constA * 1 * (sqrt(Io)/(1+sqrt(Io))-0.3*Io));
 gammaCaoMyo = gamma_cao;
 gammaCaiMyo = gamma_cai;
 
+%driving force ICaL
 PhiCaL_i =  4.0*vffrt*(gamma_cai*cai*exp(2.0*vfrt)-gamma_cao*cao)/(exp(2.0*vfrt)-1.0);
 PhiCaNa_i =  1.0*vffrt*(gamma_nai*nai*exp(1.0*vfrt)-gamma_nao*nao)/(exp(1.0*vfrt)-1.0);
 PhiCaK_i =  1.0*vffrt*(gamma_ki*ki*exp(1.0*vfrt)-gamma_kao*ko)/(exp(1.0*vfrt)-1.0);
@@ -747,7 +752,7 @@ GKb=0.0189;
 if celltype==1
     GKb=GKb*0.6;
 end
-factor_IKb=0.9; %scaling factor for Ikb. If =0 then Ikb is 0
+factor_IKb=0.9; %scaling factor for Ikb. 
 IKb=GKb*xkb*(v-EK)*factor_IKb;
 
 
@@ -764,6 +769,11 @@ ICab=PCab*4.0*vffrt*(gammaCaiMyo*cai*exp(2.0*vfrt)-gammaCaoMyo*cao)/(exp(2.0*vfr
 %calculate IpCa
 GpCa=5e-04;
 IpCa=GpCa*cai/(0.0005+cai);
+
+%calculate ICap (SAC current)
+GCap_tot= 1E-6 *10.08; % GCap_tot=GCap*BetaCap
+PCap=GCap_tot*(x);
+ICap=PCap*4.0*vffrt*(gammaCaiMyo*cai*exp(2.0*vfrt)-gammaCaoMyo*cao)/(exp(2.0*vfrt)-1.0);
 
 %% Chloride
 % I_ClCa: Ca-activated Cl Current, I_Clbk: background Cl Current
@@ -856,7 +866,7 @@ end
 %update the membrane voltage
 
 
-dv=-(INa+INaL+Ito+ICaL+ICaNa+ICaK+IKr+IKs+IK1+INaCa_i+INaCa_ss+INaK+INab+IKb+IpCa+ICab+ + I_ClCa+I_Clbk + Istim+INs+IKo);
+dv=-(INa+INaL+Ito+ICaL+ICaNa+ICaK+IKr+IKs+IK1+INaCa_i+INaCa_ss+INaK+INab+IKb+IpCa+ICab+ + I_ClCa+I_Clbk + Istim+INs+IKo+ICap);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -893,7 +903,7 @@ kmcsqn=0.8;
 
     Bcai=1.0/(1.0+cmdnmax*kmcmdn/(kmcmdn+cai)^2.0+trpnmax*kmtrpn/(kmtrpn+cai)^2.0);
  
-    dcai=Bcai*(-(ICaL_i+IpCa+ICab-2.0*INaCa_i)*Acap/(2.0*F*vmyo)-Jup*vnsr/vmyo+Jdiff*vss/vmyo);
+    dcai=Bcai*(-(ICaL_i+IpCa+ICab-2.0*INaCa_i+ICap)*Acap/(2.0*F*vmyo)-Jup*vnsr/vmyo+Jdiff*vss/vmyo);
 
     Bcass=1.0/(1.0+BSRmax*KmBSR/(KmBSR+cass)^2.0+BSLmax*KmBSL/(KmBSL+cass)^2.0);
     dcass=Bcass*(-(ICaL_ss-2.0*INaCa_ss)*Acap/(2.0*F*vss)+Jrel*vjsr/vss-Jdiff);
@@ -913,7 +923,7 @@ output=[dv dnai dnass dki dkss dcai dcass dcansr dcajsr dm dhp dh dj djp dmL dhL
 
 else
     
-      output=[INa INaL Ito ICaL IKr IKs IK1 INaCa_i INaCa_ss INaK  IKb INab ICab IpCa Jdiff JdiffNa JdiffK Jup Jleak Jtr Jrel CaMKa Istim INsNa INsK INs IKo x fINap, fINaLp, fICaLp, fJrelp, fJupp, cajsr, cansr, PhiCaL_ss, ICaL_i, I_ClCa, I_Clbk, ICaL_tot]; 
+      output=[INa INaL Ito ICaL IKr IKs IK1 INaCa_i INaCa_ss INaK  IKb INab ICab IpCa Jdiff JdiffNa JdiffK Jup Jleak Jtr Jrel CaMKa Istim INsNa INsK INs IKo ICap x fINap, fINaLp, fICaLp, fJrelp, fJupp, cajsr, cansr, PhiCaL_ss, ICaL_i, I_ClCa, I_Clbk, ICaL_tot]; 
 end
 
 end
